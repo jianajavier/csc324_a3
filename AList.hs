@@ -7,7 +7,8 @@ module AList (
     AList,
     lookupA,
     insertA,
-    updateA
+    updateA, 
+    keyExists
     )
     where
 

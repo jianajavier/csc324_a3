@@ -7,11 +7,11 @@ which you will use as the data structure for storing "mutable" data.
 -- **YOU MUST ADD ALL FUNCTIONS AND TYPES TO THIS LIST AS YOU CREATE THEM!!**
 module Mutation (
     Mutable, get, set, def,
-    Memory, Pointer
+    Memory, Pointer(..), Value(..)
     )
     where
 
-import AList (AList, lookupA, insertA, updateA)
+import AList (AList, lookupA, insertA, updateA, keyExists)
 
 -- A type representing the possible values stored in memory.
 data Value = IntVal Integer |
@@ -40,10 +40,18 @@ class Mutable a where
     def :: Memory -> Integer -> a -> (Pointer a, Memory)
 
 instance Mutable Integer where
-    get mem (P val) = case lookupA mem val of 
-        IntVal x -> x
+    get mem (P val) = 
+        if keyExists val mem then
+            case lookupA mem val of 
+                IntVal x -> x
+        else
+            error "Key does not exist in memory"
     set mem (P pt) val = updateA mem (pt, IntVal val)
-    def mem i val = ((P i), insertA mem (i, IntVal val)) 
+    def mem i val = 
+        if keyExists i mem then
+            error "Key already exists in memory"
+        else
+            ((P i), insertA mem (i, IntVal val)) 
 
 instance Mutable Bool where
     get mem (P val) = case lookupA mem val of 
@@ -51,10 +59,14 @@ instance Mutable Bool where
     set mem (P pt) val = updateA mem (pt, BoolVal val)
     def mem i val = ((P i), insertA mem (i, BoolVal val))
 
+testMem :: Memory
+testMem = [(1, IntVal 10), (2, IntVal 30), (3, BoolVal True), (4, BoolVal False)]
+
 p3 :: Pointer Bool 
 p3 = P 3
 
 p1 :: Pointer Integer
 p1 = P 1
 
--- DOESN'T INCLUDE ERROR CHECKING YET
+-- Maybe might need to add more error checking?
+-- Did not test against actual test file

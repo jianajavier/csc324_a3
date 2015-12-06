@@ -4,9 +4,9 @@ import Test.HUnit
 import Mutation (
     Memory, Pointer(..), Value(..),
     Mutable, get, set, def,
-    StateOp(..),
     (>>>), (>~>), returnVal,
     alloc, free)
+
 import Data.List (sortBy, intersect, nub)
 
 -- helper to run a StateOp
@@ -54,7 +54,7 @@ mutableTests = TestList [
     ]
 
 chainTests :: Test
-chainTests = 
+chainTests =
     let set2 = set p1 0 >>> set p3 False
         defGet = def 100 (42 :: Integer) >~> \p -> get p
     in

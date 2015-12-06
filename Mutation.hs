@@ -7,7 +7,8 @@ which you will use as the data structure for storing "mutable" data.
 -- **YOU MUST ADD ALL FUNCTIONS AND TYPES TO THIS LIST AS YOU CREATE THEM!!**
 module Mutation (
     Mutable, get, set, def,
-    Memory, Pointer(..), Value(..)
+    Memory, Pointer(..), Value(..), StateOp(..),
+    runOp, (>>>), (>~>), returnVal
     )
     where
 
@@ -24,49 +25,119 @@ type Memory = AList Integer Value
 -- A type representing a pointer to a location in memory.
 data Pointer a = P Integer deriving Show
 
+
+-- Part 2: Chaining
+data StateOp a = StateOp (Memory -> (a, Memory))
+
+-- Need to change get, set, and def in terms of this
+runOp :: StateOp a -> Memory -> (a, Memory)
+runOp (StateOp op) mem = op mem
+
+-- Need to implement
+(>>>) :: StateOp a -> StateOp b -> StateOp b
+op1 >>> op2 = StateOp (\m ->
+  let (_, m1) = runOp op1 m
+  in runOp op2 m1)
+
+
+-- Need to implement
+(>~>) :: StateOp a -> (a -> StateOp b) -> StateOp b
+f >~> g = StateOp (\m ->
+  let (x, m1) = runOp f m
+      newStackOp = g x
+  in runOp newStackOp m1)
+
+
+-- Need to implement
+{-
+	Takes a value, then creates a new StateOp which doesn't interact
+    with the memory at all, and instead just returns the value as the
+    first element in the tuple.
+
+    Example usage:
+
+    g :: Integer -> StateOp Integer
+    g x =
+	    def 1 (x + 4) >~> \p ->
+	    get p >~> \y ->
+	    returnVal (x * y)
+
+	> runOp (g 10) []
+	(140, [(1, IntVal 14)])
+-}
+returnVal :: a -> StateOp a
+returnVal x = StateOp (\m -> (x, m))
+
+
 -- Type class representing a type which can be stored in "Memory".
 class Mutable a where
 
     -- Look up a value in memory referred to by a pointer.
-    get :: Memory -> Pointer a -> a
+    get :: Pointer a -> StateOp a
+    getHelper :: Memory -> Pointer a -> a
 
     -- Change a value in memory referred to by a pointer.
     -- Return the new memory after the update.
-    set :: Memory -> Pointer a -> a -> Memory
+    setHelper :: Memory -> Pointer a -> a -> Memory
+    set :: Pointer a -> a -> StateOp ()
 
     -- Create a new memory location storing a value, returning a new pointer
     -- and the new memory with the new value.
     -- Raise an error if the input Integer is already storing a value.
-    def :: Memory -> Integer -> a -> (Pointer a, Memory)
+    def :: Integer -> a -> StateOp (Pointer a)
 
 instance Mutable Integer where
-    get mem (P val) = 
+    getHelper mem (P val) =
         if keyExists val mem then
-            case lookupA mem val of 
+            case lookupA mem val of
                 IntVal x -> x
         else
             error "Key does not exist in memory"
-    set mem (P pt) val = updateA mem (pt, IntVal val)
-    def mem i val = 
-        if keyExists i mem then
+
+    get (P val) = StateOp (\m -> (getHelper m (P val), m))
+
+    setHelper mem (P pt) val = updateA mem (pt, IntVal val)
+    set (P pt) val = StateOp (\m -> ((), setHelper m (P pt) val))
+
+    def i val = StateOp (\m ->
+        if keyExists i m then
             error "Key already exists in memory"
         else
-            ((P i), insertA mem (i, IntVal val)) 
+            ((P i), insertA m (i, IntVal val)))
 
 instance Mutable Bool where
-    get mem (P val) = case lookupA mem val of 
+    getHelper mem (P val) = case lookupA mem val of
         BoolVal x -> x
-    set mem (P pt) val = updateA mem (pt, BoolVal val)
-    def mem i val = ((P i), insertA mem (i, BoolVal val))
+    get (P val) = StateOp (\m -> (getHelper m (P val), m))
+
+    setHelper mem (P pt) val = updateA mem (pt, BoolVal val)
+    set (P pt) val = StateOp (\m -> ((), setHelper m (P pt) val))
+
+    def i val = StateOp (\m -> ((P i), insertA m (i, BoolVal val)))
 
 testMem :: Memory
 testMem = [(1, IntVal 10), (2, IntVal 30), (3, BoolVal True), (4, BoolVal False)]
 
-p3 :: Pointer Bool 
+p3 :: Pointer Bool
 p3 = P 3
 
 p1 :: Pointer Integer
 p1 = P 1
+
+f :: Integer -> StateOp Bool
+f x =
+   def 1 4 >~> \p1 ->
+   def 2 True >~> \p2 ->
+   set p1 (x + 5) >>>
+   get p1 >~> \y ->
+   set p2 (y > 3) >>>
+   get p2
+
+g :: Integer -> StateOp Integer
+g x =
+  def 1 (x + 4) >~> \p ->
+  get p >~> \y ->
+  returnVal (x * y)
 
 -- Maybe might need to add more error checking?
 -- Did not test against actual test file

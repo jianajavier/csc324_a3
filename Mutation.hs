@@ -6,7 +6,7 @@ which you will use as the data structure for storing "mutable" data.
 
 -- **YOU MUST ADD ALL FUNCTIONS AND TYPES TO THIS LIST AS YOU CREATE THEM!!**
 module Mutation (
-    Mutable, get, set, def, getWithType,
+    Mutable, get, set, def,
     Memory, Pointer(..), Value(..), StateOp(..),
     runOp, (>>>), (>~>), returnVal,
     alloc, free
@@ -95,7 +95,6 @@ class Mutable a where
     -- Look up a value in memory referred to by a pointer.
     get :: Pointer a -> StateOp a
     getHelper :: Memory -> Pointer a -> a
-    getWithType :: Pointer a -> StateOp (Value)
 
     -- Change a value in memory referred to by a pointer.
     -- Return the new memory after the update.
@@ -115,7 +114,6 @@ instance Mutable Integer where
         else
             error "Key does not exist in memory"
 
-    getWithType (P val) = StateOp (\m -> (IntVal (getHelper m (P val)), m))
     get (P val) = StateOp (\m -> (getHelper m (P val), m))
 
     setHelper mem (P pt) val = updateA mem (pt, IntVal val)
@@ -131,7 +129,6 @@ instance Mutable Bool where
     getHelper mem (P val) = case lookupA mem val of
         BoolVal x -> x
     get (P val) = StateOp (\m -> (getHelper m (P val), m))
-    getWithType (P val) = StateOp (\m -> (BoolVal (getHelper m (P val)), m))
 
     setHelper mem (P pt) val = updateA mem (pt, BoolVal val)
     set (P pt) val = StateOp (\m -> ((), setHelper m (P pt) val))

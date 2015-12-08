@@ -10,7 +10,6 @@ module MutationUser (
 
 import Mutation (
     get, set, def, Mutable, Pointer(..), Memory,
-    getWithType,
     StateOp(..), returnVal, (>>>), (>~>), runOp,
     Value(..)
     )

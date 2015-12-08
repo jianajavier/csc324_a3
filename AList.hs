@@ -8,7 +8,8 @@ module AList (
     lookupA,
     insertA,
     updateA,
-    keyExists
+    keyExists,
+    deleteA
     )
     where
 
@@ -55,3 +56,7 @@ updateA :: Eq a => AList a b -> (a, b) -> AList a b
 updateA alist (key, val) =
     map (\x -> let (a, b) = x in
         if (a == key) then (a, val) else (a, b)) alist
+
+deleteA :: Eq a => AList a b -> a -> AList a b
+deleteA alist key =
+  filter (\x -> let (k, v) = x in k /= key) alist

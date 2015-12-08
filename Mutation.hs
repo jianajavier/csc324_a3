@@ -8,11 +8,12 @@ which you will use as the data structure for storing "mutable" data.
 module Mutation (
     Mutable, get, set, def, getWithType,
     Memory, Pointer(..), Value(..), StateOp(..),
-    runOp, (>>>), (>~>), returnVal
+    runOp, (>>>), (>~>), returnVal,
+    alloc, free
     )
     where
 
-import AList (AList, lookupA, insertA, updateA, keyExists)
+import AList (AList, lookupA, insertA, updateA, keyExists, deleteA)
 
 -- A type representing the possible values stored in memory.
 data Value = IntVal Integer |
@@ -47,8 +48,6 @@ f >~> g = StateOp (\m ->
       newStackOp = g x
   in runOp newStackOp m1)
 
-
--- Need to implement
 {-
 	Takes a value, then creates a new StateOp which doesn't interact
     with the memory at all, and instead just returns the value as the
@@ -67,6 +66,27 @@ f >~> g = StateOp (\m ->
 -}
 returnVal :: a -> StateOp a
 returnVal x = StateOp (\m -> (x, m))
+
+plus1 x = x + 1
+nats = 0 : map plus1 nats
+
+alloc :: Mutable a => a -> StateOp (Pointer a)
+alloc x = StateOp (\m ->
+  runOp (def (findFreeSpace 0 m) x) m)
+
+findFreeSpace acc mem =
+  if keyExists acc mem then
+    findFreeSpace (acc + 1) mem
+  else
+    acc
+
+free :: Mutable a => Pointer a -> StateOp ()
+free (P val) = StateOp (\m ->
+  if keyExists val m then
+    ((), deleteA m val)
+  else
+    error "Key does not exist in memory")
+
 
 
 -- Type class representing a type which can be stored in "Memory".

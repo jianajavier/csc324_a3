@@ -5,7 +5,7 @@ import Mutation (
     Memory, Pointer(..), Value(..),
     Mutable, get, set, def,
     (>>>), (>~>), returnVal,
-    alloc, free)
+    alloc, free, StateOp(..))
 
 import Data.List (sortBy, intersect, nub)
 

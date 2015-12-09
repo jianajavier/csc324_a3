@@ -57,6 +57,9 @@ updateA alist (key, val) =
     map (\x -> let (a, b) = x in
         if (a == key) then (a, val) else (a, b)) alist
 
+-- | Deletes a key value pair from the association list alist
+--   with the given key. If it does not find the key, it returns
+--   the same list.
 deleteA :: Eq a => AList a b -> a -> AList a b
 deleteA alist key =
   filter (\x -> let (k, v) = x in k /= key) alist

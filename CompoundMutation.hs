@@ -5,7 +5,7 @@ which you will use as the data structure for storing "mutable" data.
 -}
 
 -- **YOU MUST ADD ALL FUNCTIONS AND TYPES TO THIS LIST AS YOU CREATE THEM!!**
-module CompundMutation (
+module CompoundMutation (
     Mutable, get, set, def,
     Memory, Pointer(..), Value(..), StateOp(..),
     runOp, (>>>), (>~>), returnVal,
@@ -30,22 +30,19 @@ type Memory = AList Integer Value
 -- A type representing a pointer to a location in memory.
 data Pointer a = P Integer | PP Integer Integer deriving Show
 
-
 -- Part 2: Chaining
 data StateOp a = StateOp (Memory -> (a, Memory))
 
--- Need to change get, set, and def in terms of this
 runOp :: StateOp a -> Memory -> (a, Memory)
 runOp (StateOp op) mem = op mem
 
--- Need to implement
+-- Then
 (>>>) :: StateOp a -> StateOp b -> StateOp b
 op1 >>> op2 = StateOp (\m ->
   let (_, m1) = runOp op1 m
   in runOp op2 m1)
 
-
--- Need to implement
+-- Bind
 (>~>) :: StateOp a -> (a -> StateOp b) -> StateOp b
 f >~> g = StateOp (\m ->
   let (x, m1) = runOp f m
@@ -107,18 +104,14 @@ free (P val) = StateOp (\m ->
 
 
 
-
-
 -- Type class representing a type which can be stored in "Memory".
 class Mutable a where
 
     -- Look up a value in memory referred to by a pointer.
     get :: Pointer a -> StateOp a
-    getHelper :: Memory -> Pointer a -> a
 
     -- Change a value in memory referred to by a pointer.
     -- Return the new memory after the update.
-    setHelper :: Memory -> Pointer a -> a -> Memory
     set :: Pointer a -> a -> StateOp ()
 
     -- Create a new memory location storing a value, returning a new pointer
@@ -127,36 +120,44 @@ class Mutable a where
     def :: Integer -> a -> StateOp (Pointer a)
 
 instance Mutable Integer where
-    getHelper mem (P val) =
-        if keyExists val mem then
-            case lookupA mem val of
-                IntVal x -> x
-                BoolVal y -> error "Wrong Type"
-        else
-            error "Key does not exist in memory"
+  get (P val) = StateOp (\m -> (
+    (if keyExists val m then
+      case lookupA m val of
+        IntVal x -> x
+     else
+      error "Key does not exist in memory"), m))
 
-    get (P val) = StateOp (\m -> (getHelper m (P val), m))
-    --get (PP _ _) = StateOp(\m -> (1738, m))
+  set (P pt) val = StateOp (\m -> ((),
+    if keyExists pt m then
+      updateA m (pt, IntVal val)
+    else
+      error "Key does not exist in memory"))
 
-    setHelper mem (P pt) val = updateA mem (pt, IntVal val)
-    set (P pt) val = StateOp (\m -> ((), setHelper m (P pt) val))
-
-    def i val = StateOp (\m ->
-        if keyExists i m then
-            error "Key already exists in memory"
-        else
-            ((P i), insertA m (i, IntVal val)))
+  def i val = StateOp (\m ->
+      if keyExists i m then
+          error "Key already exists in memory"
+      else
+          ((P i), insertA m (i, IntVal val)))
 
 instance Mutable Bool where
-    getHelper mem (P val) = case lookupA mem val of
+  get (P val) = StateOp (\m -> (
+    (if keyExists val m then
+      case lookupA m val of
         BoolVal x -> x
-        IntVal x -> error "Wrong Type"
-    get (P val) = StateOp (\m -> (getHelper m (P val), m))
+     else
+      error "Key does not exist in memory"), m))
 
-    setHelper mem (P pt) val = updateA mem (pt, BoolVal val)
-    set (P pt) val = StateOp (\m -> ((), setHelper m (P pt) val))
+  set (P pt) val = StateOp (\m -> ((),
+    if keyExists pt m then
+      updateA m (pt, BoolVal val)
+    else
+      error "Key does not exist in memory"))
 
-    def i val = StateOp (\m -> ((P i), insertA m (i, BoolVal val)))
+  def i val = StateOp (\m ->
+    if keyExists i m then
+      error "Key already exists in memory"
+    else
+      ((P i), insertA m (i, BoolVal val)))
 
 instance Mutable Person where
   get (PP ip bp) = StateOp (\m ->
@@ -169,38 +170,11 @@ instance Mutable Person where
   set (PP ip bp) person =
     let (Person age bool) = person
     in set (P ip) age >>> set (P bp) bool
-  --setHelper = undefined
 
   def i (Person age stud) = StateOp (\m ->
     let ((P num), val) = runOp (def i age >>> alloc stud) m
     in (PP i num, val))
 
-testMem :: Memory
-testMem = [(1, IntVal 10), (2, IntVal 30), (3, BoolVal True), (4, BoolVal False)]
-
--- p3 :: Pointer Bool
--- p3 = P 3
---
--- p1 :: Pointer Integer
--- p1 = P 1
-
-f :: Integer -> StateOp Bool
-f x =
-   def 1 4 >~> \p1 ->
-   def 2 True >~> \p2 ->
-   set p1 (x + 5) >>>
-   get p1 >~> \y ->
-   set p2 (y > 3) >>>
-   get p2
-
-g :: Integer -> StateOp Integer
-g x =
-  def 1 (x + 4) >~> \p ->
-  get p >~> \y ->
-  returnVal (x * y)
-
--- Maybe might need to add more error checking?
--- Did not test against actual test file
 
 personTest :: Person -> Integer -> StateOp (Integer, Bool, Person)
 personTest person x =

@@ -67,9 +67,6 @@ f >~> g = StateOp (\m ->
 returnVal :: a -> StateOp a
 returnVal x = StateOp (\m -> (x, m))
 
-plus1 x = x + 1
-nats = 0 : map plus1 nats
-
 alloc :: Mutable a => a -> StateOp (Pointer a)
 alloc x = StateOp (\m ->
   runOp (def (findFreeSpace 0 m) x) m)
@@ -87,18 +84,14 @@ free (P val) = StateOp (\m ->
   else
     error "Key does not exist in memory")
 
-
-
 -- Type class representing a type which can be stored in "Memory".
 class Mutable a where
 
     -- Look up a value in memory referred to by a pointer.
     get :: Pointer a -> StateOp a
-    getHelper :: Memory -> Pointer a -> a
 
     -- Change a value in memory referred to by a pointer.
     -- Return the new memory after the update.
-    setHelper :: Memory -> Pointer a -> a -> Memory
     set :: Pointer a -> a -> StateOp ()
 
     -- Create a new memory location storing a value, returning a new pointer
@@ -107,17 +100,18 @@ class Mutable a where
     def :: Integer -> a -> StateOp (Pointer a)
 
 instance Mutable Integer where
-    getHelper mem (P val) =
-        if keyExists val mem then
-            case lookupA mem val of
-                IntVal x -> x
-        else
-            error "Key does not exist in memory"
+    get (P val) = StateOp (\m -> (
+      (if keyExists val m then
+        case lookupA m val of
+          IntVal x -> x
+       else
+        error "Key does not exist in memory"), m))
 
-    get (P val) = StateOp (\m -> (getHelper m (P val), m))
-
-    setHelper mem (P pt) val = updateA mem (pt, IntVal val)
-    set (P pt) val = StateOp (\m -> ((), setHelper m (P pt) val))
+    set (P pt) val = StateOp (\m -> ((),
+      if keyExists pt m then
+        updateA m (pt, IntVal val)
+      else
+        error "Key does not exist in memory"))
 
     def i val = StateOp (\m ->
         if keyExists i m then
@@ -126,23 +120,24 @@ instance Mutable Integer where
             ((P i), insertA m (i, IntVal val)))
 
 instance Mutable Bool where
-    getHelper mem (P val) = case lookupA mem val of
-        BoolVal x -> x
-    get (P val) = StateOp (\m -> (getHelper m (P val), m))
+    get (P val) = StateOp (\m -> (
+      (if keyExists val m then
+        case lookupA m val of
+          BoolVal x -> x
+       else
+        error "Key does not exist in memory"), m))
 
-    setHelper mem (P pt) val = updateA mem (pt, BoolVal val)
-    set (P pt) val = StateOp (\m -> ((), setHelper m (P pt) val))
+    set (P pt) val = StateOp (\m -> ((),
+      if keyExists pt m then
+        updateA m (pt, BoolVal val)
+      else
+        error "Key does not exist in memory"))
 
-    def i val = StateOp (\m -> ((P i), insertA m (i, BoolVal val)))
-
-testMem :: Memory
-testMem = [(1, IntVal 10), (2, IntVal 30), (3, BoolVal True), (4, BoolVal False)]
-
-p3 :: Pointer Bool
-p3 = P 3
-
-p1 :: Pointer Integer
-p1 = P 1
+    def i val = StateOp (\m ->
+      if keyExists i m then
+        error "Key already exists in memory"
+      else
+        ((P i), insertA m (i, BoolVal val)))
 
 f :: Integer -> StateOp Bool
 f x =
@@ -158,6 +153,3 @@ g x =
   def 1 (x + 4) >~> \p ->
   get p >~> \y ->
   returnVal (x * y)
-
--- Maybe might need to add more error checking?
--- Did not test against actual test file
